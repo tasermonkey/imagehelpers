@@ -1,21 +1,15 @@
 package com.tasermonkeys.imagehelpers;
 
-import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
-import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageInputStream;
-import javax.imageio.stream.ImageOutputStream;
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
 import java.util.Iterator;
-import java.util.NoSuchElementException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 public class Overlayer implements AutoCloseable {
-    public static Logger log = Logger.getLogger(Overlayer.class.getName());
     private File file;
     private ImageReader imageReader;
     private BufferedImage bufferedImage;
@@ -35,7 +29,7 @@ public class Overlayer implements AutoCloseable {
             imageReader.setInput(ciis, false);
             bufferedImage = imageReader.read(0);
         } catch (IOException | RuntimeException e) {
-            closeSafetly(file, imageReader, ciis);
+            BufferedImageHelper.closeSafely(file, imageReader, ciis);
             throw e;
         }
     }
@@ -97,7 +91,7 @@ public class Overlayer implements AutoCloseable {
             reader.setInput(iis);
             return overlayImage(reader.read(0));
         } finally {
-            closeSafetly(file, reader, iis);
+            BufferedImageHelper.closeSafely(file, reader, iis);
         }
 
     }
@@ -111,28 +105,14 @@ public class Overlayer implements AutoCloseable {
     }
 
     public Overlayer writeToFile(File outputFilename) throws IOException {
-        String extension = outputFilename.getName().substring(outputFilename.getName().lastIndexOf('.')+1).toLowerCase();
-        String format = formatTypeFromExtension(extension);
-        ImageWriter iw;
-        try
-        {
-            iw = ImageIO.getImageWritersByFormatName(format).next();
-        }
-        catch (NoSuchElementException e)
-        {
-            throw new IOException(e);
-        }
-        try {
-            try (FileOutputStream fos = new FileOutputStream(outputFilename)) {
-                try (ImageOutputStream ios = ImageIO.createImageOutputStream(fos)) {
-                    iw.setOutput(ios);
-                    iw.write(new IIOImage(bufferedImage, null, null));
-                }
-            }
-            return this;
-        } finally {
-            closeSafetly(outputFilename, iw);
-        }
+        BufferedImageHelper.writeToFile(outputFilename, bufferedImage);
+        return this;
+    }
+
+    public Overlayer writeThumbnailToFile(int newWidth, int newHeight, String outputFilename) {
+
+
+        return this;
     }
 
     public Overlayer writeToFile(String outputFilename) throws IOException {
@@ -141,51 +121,7 @@ public class Overlayer implements AutoCloseable {
 
     @Override
     public void close() {
-        closeSafetly(file, imageReader, ciis);
-    }
-
-    public static void closeSafetly(File file, ImageWriter writer) {
-        try {
-            if (writer != null) writer.dispose();
-        } catch (Exception e) {
-            log.log(Level.WARNING, "Could not close ImageWriter for file " + getFilePath(file) + ": " + exceptionToString(e));
-        }
-    }
-
-    public static void closeSafetly(File file, ImageReader reader, ImageInputStream cis) {
-        try {
-            if (reader != null) reader.dispose();
-        } catch (Exception e) {
-            log.log(Level.WARNING, "Could not close imageReader for file " + getFilePath(file) + ": " + exceptionToString(e));
-        }
-        try {
-            if (cis != null) cis.close();
-        } catch (Exception e) {
-            log.log(Level.WARNING, "Could not close ImageInputStream for file " + getFilePath(file) + ": " + exceptionToString(e));
-        }
-    }
-
-    private static String getFilePath(File file) {
-        if ( file == null )
-            return "UnknownInput";
-        else
-            return file.getAbsolutePath();
-    }
-
-    private static String exceptionToString(Exception e) {
-        StringWriter sw = new StringWriter();
-        PrintWriter pw = new PrintWriter(sw);
-        e.printStackTrace(pw);
-        return sw.toString();
-    }
-
-    private static String formatTypeFromExtension(String ext) throws IOException {
-        Iterator<ImageReader> rIter = ImageIO.getImageReadersBySuffix(ext);
-        if (rIter.hasNext())
-        {
-            return rIter.next().getFormatName();
-        }
-        throw new IOException("Unknown extension " + ext);
+        BufferedImageHelper.closeSafely(file, imageReader, ciis);
     }
 
     public static void main(String[] args) throws IOException {
